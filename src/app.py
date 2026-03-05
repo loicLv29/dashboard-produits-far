@@ -636,14 +636,12 @@ with tab1:
         ascending=False
     ).head(top_n)
 
-    st.data_editor(
+    st.dataframe(
         df_acq[cols],
         hide_index=True,
-        use_container_width=False,
-        width=2200,
+        use_container_width=True,
         height=520,
-        column_config=column_config,
-        key="data_editor_acquisition"
+        column_config=column_config
     )
 
 
@@ -660,14 +658,12 @@ with tab2:
         ascending=False
     ).head(top_n)
 
-    st.data_editor(
+    st.dataframe(
         df_fid[cols],
         hide_index=True,
-        use_container_width=False,
-        width=2200,
+        use_container_width=True,
         height=520,
-        column_config=column_config,
-        key="data_editor_fidelisation"
+        column_config=column_config
     )
 
 
@@ -684,12 +680,10 @@ with tab3:
         ascending=False
     ).head(top_n)
 
-    st.data_editor(
+    st.dataframe(
         df_risk[cols],
         hide_index=True,
-        use_container_width=False,
-        width=2200,
+        use_container_width=True,
         height=520,
-        column_config=column_config,
-        key="data_editor_risque"
+        column_config=column_config
     )
