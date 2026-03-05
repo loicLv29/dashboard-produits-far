@@ -1,0 +1,125 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2761
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fnil\fcharset0 HelveticaNeue-Bold;\f1\fnil\fcharset0 HelveticaNeue;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\deftab560
+\pard\pardeftab560\partightenfactor0
+
+\f0\b\fs40 \cf0 235\
+\pard\pardeftab560\slleading20\partightenfactor0
+
+\f1\b0\fs26 \cf0 SELECT \
+    p.id_product,\
+    pa.id_product_attribute,\
+    cl.name AS categorie,\
+    m.name AS marque,\
+\
+    CONCAT(\
+        pl.name, \
+        ' ', \
+        GROUP_CONCAT(DISTINCT agl.name, ': ', al.name SEPARATOR ', ')\
+    ) AS nom,\
+\
+    sa.quantity AS stock,\
+\
+    IFNULL(pa.wholesale_price, p.wholesale_price) AS prix_achat_ht,\
+\
+    ROUND((p.price + IFNULL(pa.price, 0)) * 1.20, 2) AS prix_vente_ttc,\
+\
+    /* Quantit\'e9 vendue 30 jours */\
+    SUM(CASE \
+        WHEN o.date_add >= DATE_SUB(NOW(), INTERVAL 30 DAY) \
+        THEN od.product_quantity \
+        ELSE 0 \
+    END) AS qte_30j,\
+\
+    /* Rotation 30 jours = ventes 30j / stock */\
+    ROUND(\
+        SUM(CASE \
+            WHEN o.date_add >= DATE_SUB(NOW(), INTERVAL 30 DAY) \
+            THEN od.product_quantity \
+            ELSE 0 \
+        END) / NULLIF(sa.quantity, 0),\
+        2\
+    ) AS rotation_30j,\
+\
+    /* Rotation 60 jours */\
+    ROUND(\
+        SUM(CASE \
+            WHEN o.date_add >= DATE_SUB(NOW(), INTERVAL 60 DAY) \
+            THEN od.product_quantity \
+            ELSE 0 \
+        END) / NULLIF(sa.quantity, 0),\
+        2\
+    ) AS rotation_60j,\
+\
+    /* Rotation 90 jours */\
+    ROUND(\
+        SUM(CASE \
+            WHEN o.date_add >= DATE_SUB(NOW(), INTERVAL 90 DAY) \
+            THEN od.product_quantity \
+            ELSE 0 \
+        END) / NULLIF(sa.quantity, 0),\
+        2\
+    ) AS rotation_90j\
+\
+FROM ps_product p\
+\
+JOIN ps_product_attribute pa \
+    ON pa.id_product = p.id_product\
+\
+LEFT JOIN ps_stock_available sa \
+    ON sa.id_product = p.id_product \
+    AND sa.id_product_attribute = pa.id_product_attribute\
+\
+LEFT JOIN ps_product_lang pl \
+    ON pl.id_product = p.id_product \
+    AND pl.id_lang = 1\
+\
+LEFT JOIN ps_manufacturer m \
+    ON m.id_manufacturer = p.id_manufacturer\
+\
+LEFT JOIN ps_category_product cp \
+    ON cp.id_product = p.id_product\
+\
+LEFT JOIN ps_category c \
+    ON c.id_category = cp.id_category\
+\
+LEFT JOIN ps_category_lang cl \
+    ON cl.id_category = c.id_category \
+    AND cl.id_lang = 1\
+\
+LEFT JOIN ps_product_attribute_combination pac \
+    ON pac.id_product_attribute = pa.id_product_attribute\
+\
+LEFT JOIN ps_attribute a \
+    ON a.id_attribute = pac.id_attribute\
+\
+LEFT JOIN ps_attribute_lang al \
+    ON al.id_attribute = a.id_attribute \
+    AND al.id_lang = 1\
+\
+LEFT JOIN ps_attribute_group ag \
+    ON ag.id_attribute_group = a.id_attribute_group\
+\
+LEFT JOIN ps_attribute_group_lang agl \
+    ON agl.id_attribute_group = ag.id_attribute_group \
+    AND agl.id_lang = 1\
+\
+/* Jointure ventes */\
+LEFT JOIN ps_order_detail od \
+    ON od.product_id = p.id_product \
+    AND od.product_attribute_id = pa.id_product_attribute\
+\
+LEFT JOIN ps_orders o \
+    ON o.id_order = od.id_order\
+    AND o.current_state IN (2,3,4,5) -- commandes valid\'e9es\
+\
+WHERE \
+    p.active = 1\
+    AND c.level_depth >= 3\
+\
+GROUP BY \
+    p.id_product, \
+    pa.id_product_attribute;}
