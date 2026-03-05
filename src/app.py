@@ -346,7 +346,7 @@ if statuts:
     ]
 
 df_filtered = df_filtered.drop_duplicates(
-    subset=["id_product"],
+    subset=[c for c in ["id_product", "id_product_attribute"] if c in df_filtered.columns] or ["id_product"],
     keep="first"
 )
 
