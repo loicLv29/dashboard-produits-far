@@ -549,6 +549,14 @@ k4.metric("💣 Valeur stock HT",f"{stock:,.0f} €".replace(","," "))
 # TABLES
 # =========================
 
+# Affichage: remplace les valeurs manquantes de marge par "N/A" pour eviter "None".
+if "marge_pct" in df_filtered.columns:
+    df_filtered["marge_pct_display"] = df_filtered["marge_pct"].apply(
+        lambda x: "N/A" if pd.isna(x) else x
+    )
+else:
+    df_filtered["marge_pct_display"] = "N/A"
+
 base_cols=[
 "id_product",
 "ean",
@@ -558,7 +566,7 @@ base_cols=[
 "categorie",
 "trend",
 "prix_vente_ttc",
-"marge_pct",
+"marge_pct_display",
 "stock",
 "potentiel_ca"
 ]
@@ -588,9 +596,8 @@ column_config={
     "Potentiel CA",
     format="%.0f €"
 ),
-"marge_pct": st.column_config.NumberColumn(
+"marge_pct_display": st.column_config.TextColumn(
     "Marge %",
-    format="%.1f %%"
 )
 }
 
