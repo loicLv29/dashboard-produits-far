@@ -560,7 +560,8 @@ with tab1:
         df_acq[cols],
         hide_index=True,
         use_container_width=True,
-        column_config=column_config
+        column_config=column_config,
+        key="data_editor_acquisition"
     )
 
 
@@ -581,7 +582,8 @@ with tab2:
         df_fid[cols],
         hide_index=True,
         use_container_width=True,
-        column_config=column_config
+        column_config=column_config,
+        key="data_editor_fidelisation"
     )
 
 
@@ -602,5 +604,6 @@ with tab3:
         df_risk[cols],
         hide_index=True,
         use_container_width=True,
-        column_config=column_config
+        column_config=column_config,
+        key="data_editor_risque"
     )
