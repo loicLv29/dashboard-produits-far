@@ -290,15 +290,33 @@ if selected_years:
 
 if search_query:
 
-    q = search_query.lower()
-
-    df_filtered = df_filtered[
-        df_filtered["id_product"].astype(str).str.contains(q, regex=False, na=False)
-        |
-        df_filtered["nom"].str.contains(q, case=False, regex=False, na=False)
-        |
-        df_filtered["ean"].astype(str).str.contains(q, regex=False, na=False)
+    tokens = [t for t in search_query.lower().split() if t]
+    search_cols = [
+        c for c in [
+            "id_product",
+            "nom",
+            "ean",
+            "produit",
+            "produit_declinaison",
+            "marque",
+            "categorie",
+        ] if c in df_filtered.columns
     ]
+
+    # Concat all searchable fields so multi-word queries can match across columns.
+    search_text = (
+        df_filtered[search_cols]
+        .astype(str)
+        .fillna("")
+        .agg(" ".join, axis=1)
+        .str.lower()
+    )
+
+    if tokens:
+        mask = pd.Series(True, index=df_filtered.index)
+        for token in tokens:
+            mask &= search_text.str.contains(token, regex=False, na=False)
+        df_filtered = df_filtered[mask]
 
 df_filtered = df_filtered[
     (df_filtered["prix_vente_ttc"]>=prix_min)
