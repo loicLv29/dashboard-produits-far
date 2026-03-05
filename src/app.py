@@ -639,7 +639,9 @@ with tab1:
     st.data_editor(
         df_acq[cols],
         hide_index=True,
-        use_container_width=True,
+        use_container_width=False,
+        width=2200,
+        height=520,
         column_config=column_config,
         key="data_editor_acquisition"
     )
@@ -661,7 +663,9 @@ with tab2:
     st.data_editor(
         df_fid[cols],
         hide_index=True,
-        use_container_width=True,
+        use_container_width=False,
+        width=2200,
+        height=520,
         column_config=column_config,
         key="data_editor_fidelisation"
     )
@@ -683,7 +687,9 @@ with tab3:
     st.data_editor(
         df_risk[cols],
         hide_index=True,
-        use_container_width=True,
+        use_container_width=False,
+        width=2200,
+        height=520,
         column_config=column_config,
         key="data_editor_risque"
     )
