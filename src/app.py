@@ -195,6 +195,34 @@ search_query = st.sidebar.text_input(
     "🔎 Recherche produit (ID / nom / EAN)"
 )
 
+selected_suggestion = None
+if search_query:
+    search_seed = search_query.lower()
+    suggestion_mask = (
+        df["id_product"].astype(str).str.contains(search_seed, regex=False, na=False)
+        |
+        df["nom"].astype(str).str.contains(search_seed, case=False, regex=False, na=False)
+        |
+        df["ean"].astype(str).str.contains(search_seed, regex=False, na=False)
+    )
+    suggestions_df = (
+        df.loc[suggestion_mask, ["id_product", "nom"]]
+        .drop_duplicates()
+        .head(20)
+    )
+    suggestion_labels = [
+        f"{int(row.id_product)} - {row.nom}"
+        for row in suggestions_df.itertuples(index=False)
+    ]
+    if suggestion_labels:
+        selected_suggestion = st.sidebar.selectbox(
+            "Suggestions",
+            options=["(aucune)"] + suggestion_labels,
+            index=0
+        )
+        if selected_suggestion != "(aucune)":
+            search_query = selected_suggestion.split(" - ", 1)[0]
+
 
 # =========================
 # PRIX
@@ -203,14 +231,23 @@ search_query = st.sidebar.text_input(
 min_price = float(df["prix_vente_ttc"].min())
 max_price = float(df["prix_vente_ttc"].max())
 
-prix_range = st.sidebar.slider(
-    "💰 Plage de prix",
-    min_price,
-    max_price,
-    (min_price,max_price)
+st.sidebar.subheader("💰 Plage de prix")
+prix_min = st.sidebar.number_input(
+    "Prix minimum",
+    min_value=min_price,
+    max_value=max_price,
+    value=min_price,
+    step=1.0
 )
-
-prix_min,prix_max = prix_range
+prix_max = st.sidebar.number_input(
+    "Prix maximum",
+    min_value=min_price,
+    max_value=max_price,
+    value=max_price,
+    step=1.0
+)
+if prix_min > prix_max:
+    prix_min, prix_max = prix_max, prix_min
 
 stock_min = st.sidebar.slider("Stock minimum",0,500,1)
 
@@ -235,28 +272,6 @@ categories = st.sidebar.multiselect(
     "Catégories",
     category_options
 )
-
-
-# =========================
-# AGE MOYEN
-# =========================
-
-st.sidebar.subheader("👥 Age moyen")
-
-if "age_moyen" in df.columns and df["age_moyen"].notna().any():
-
-    age_min = float(df["age_moyen"].dropna().min())
-    age_max = float(df["age_moyen"].dropna().max())
-
-    age_range = st.sidebar.slider(
-        "Plage âge moyen",
-        min_value=age_min,
-        max_value=age_max,
-        value=(age_min, age_max)
-    )
-
-else:
-    age_range = None
 
 
 # =========================
@@ -366,12 +381,6 @@ if categories:
     df_filtered = df_filtered[df_filtered["categorie"].isin(categories)]
 
 # filtre age
-if age_range is not None:
-    df_filtered = df_filtered[
-        (df_filtered["age_moyen"].fillna(0) >= age_range[0]) &
-        (df_filtered["age_moyen"].fillna(0) <= age_range[1])
-    ]
-
 # filtre statut risque
 if statuts:
     df_filtered = df_filtered[
