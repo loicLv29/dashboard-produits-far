@@ -13,6 +13,25 @@ st.set_page_config(layout="wide")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TABLE_PATH = os.path.join(BASE_DIR, "..", "exports", "table_scoring.csv")
 
+def run_dashboard_engine() -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "dashboard_engine.py"],
+        cwd=BASE_DIR,
+        capture_output=True,
+        text=True
+    )
+
+def ensure_table_exists() -> None:
+    if os.path.exists(TABLE_PATH):
+        return
+
+    result = run_dashboard_engine()
+    if result.returncode != 0 or not os.path.exists(TABLE_PATH):
+        raise FileNotFoundError(
+            "Le fichier exports/table_scoring.csv est introuvable et sa generation a echoue.\n"
+            f"stderr:\n{result.stderr}"
+        )
+
 def require_authentication() -> None:
     configured_password = st.secrets.get("APP_PASSWORD", "")
 
@@ -44,6 +63,7 @@ require_authentication()
 def load_data(path):
     return pd.read_csv(path)
 
+ensure_table_exists()
 df = load_data(TABLE_PATH)
 
 
@@ -104,12 +124,7 @@ if st.sidebar.button("Rafraichir les données"):
 
     with st.spinner("Recalcul en cours..."):
 
-        result = subprocess.run(
-            [sys.executable,"dashboard_engine.py"],
-            cwd=BASE_DIR,
-            capture_output=True,
-            text=True
-        )
+        result = run_dashboard_engine()
 
         if result.returncode == 0:
             st.cache_data.clear()
