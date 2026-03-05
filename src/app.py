@@ -11,6 +11,27 @@ import altair as alt
 
 st.set_page_config(layout="wide")
 
+st.markdown(
+    """
+    <style>
+    /* Keep horizontal scrollbar always visible for Streamlit data tables. */
+    div[data-testid="stDataFrame"] [data-testid="stTable"] {
+        overflow-x: scroll !important;
+        overflow-y: auto !important;
+        scrollbar-gutter: stable both-edges;
+    }
+    div[data-testid="stDataFrame"] [data-testid="stTable"]::-webkit-scrollbar {
+        height: 12px;
+    }
+    div[data-testid="stDataFrame"] [data-testid="stTable"]::-webkit-scrollbar-thumb {
+        background: #9aa3af;
+        border-radius: 999px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_EXPORT_DIR = os.path.join(BASE_DIR, "..", "exports")
 
