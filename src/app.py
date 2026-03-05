@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import hmac
+import tempfile
 
 import numpy as np
 import pandas as pd
@@ -11,14 +12,39 @@ import altair as alt
 st.set_page_config(layout="wide")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TABLE_PATH = os.path.join(BASE_DIR, "..", "exports", "table_scoring.csv")
+DEFAULT_EXPORT_DIR = os.path.join(BASE_DIR, "..", "exports")
+
+def resolve_export_dir() -> str:
+    candidate_dirs = [
+        DEFAULT_EXPORT_DIR,
+        os.path.join(tempfile.gettempdir(), "ipln-dashboard", "exports"),
+    ]
+
+    for directory in candidate_dirs:
+        try:
+            os.makedirs(directory, exist_ok=True)
+            probe_file = os.path.join(directory, ".write_probe")
+            with open(probe_file, "w", encoding="utf-8") as f:
+                f.write("ok")
+            os.remove(probe_file)
+            return directory
+        except OSError:
+            continue
+
+    raise RuntimeError("Aucun dossier d'export inscriptible n'est disponible.")
+
+EXPORT_DIR = resolve_export_dir()
+TABLE_PATH = os.path.join(EXPORT_DIR, "table_scoring.csv")
 
 def run_dashboard_engine() -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env["IPLN_EXPORT_DIR"] = EXPORT_DIR
     return subprocess.run(
         [sys.executable, "dashboard_engine.py"],
         cwd=BASE_DIR,
         capture_output=True,
-        text=True
+        text=True,
+        env=env
     )
 
 def ensure_table_exists() -> None:

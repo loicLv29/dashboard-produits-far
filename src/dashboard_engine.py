@@ -11,7 +11,8 @@ TOP_N = 200
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "..", "data")
-EXPORT_DIR = os.path.join(BASE_DIR, "..", "exports")
+DEFAULT_EXPORT_DIR = os.path.join(BASE_DIR, "..", "exports")
+EXPORT_DIR = os.environ.get("IPLN_EXPORT_DIR", DEFAULT_EXPORT_DIR)
 
 # ⚠️ Mets ici les noms EXACTS de tes fichiers (sans _2025 si tu as changé)
 FILE_234 = "234_clients_categories.csv"
