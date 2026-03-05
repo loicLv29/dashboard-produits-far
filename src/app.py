@@ -601,24 +601,46 @@ cols = base_cols + year_cols + [
 
 cols=[c for c in cols if c in df_filtered.columns]
 
+def get_column_width(series: pd.Series, col_name: str) -> str:
+    if series.empty:
+        max_len = len(col_name)
+    else:
+        max_len = int(series.astype(str).str.len().quantile(0.95))
+    if max_len <= 10:
+        return "small"
+    if max_len <= 28:
+        return "medium"
+    return "large"
 
 column_config={
 "Idealo": st.column_config.LinkColumn(
     "Prix marché",
-    display_text="Vérifier le prix"
+    display_text="Vérifier le prix",
+    width="small"
 ),
 "prix_vente_ttc": st.column_config.NumberColumn(
     "Prix TTC",
-    format="%.2f €"
+    format="%.2f €",
+    width="small"
 ),
 "potentiel_ca": st.column_config.NumberColumn(
     "Potentiel CA",
-    format="%.0f €"
+    format="%.0f €",
+    width="small"
 ),
 "marge_pct_display": st.column_config.TextColumn(
     "Marge %",
+    width="small"
 )
 }
+
+for col in cols:
+    if col in column_config:
+        continue
+    column_config[col] = st.column_config.Column(
+        label=col,
+        width=get_column_width(df_filtered[col], col)
+    )
 
 
 # =========================
