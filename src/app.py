@@ -191,9 +191,16 @@ marques = st.sidebar.multiselect(
     sorted(df["marque"].dropna().unique())
 )
 
+if marques:
+    category_options = sorted(
+        df[df["marque"].isin(marques)]["categorie"].dropna().unique()
+    )
+else:
+    category_options = sorted(df["categorie"].dropna().unique())
+
 categories = st.sidebar.multiselect(
     "Catégories",
-    sorted(df["categorie"].dropna().unique())
+    category_options
 )
 
 
@@ -326,6 +333,11 @@ df_filtered = df_filtered.drop_duplicates(
 )
 
 df_filtered = df_filtered.reset_index(drop=True)
+
+if df_filtered.empty:
+    st.warning(
+        "Aucun resultat avec ces filtres. Essaie d'enlever une categorie ou une marque."
+    )
 
 
 # =========================
