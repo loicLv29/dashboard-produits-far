@@ -691,7 +691,8 @@ with tab1:
     st.dataframe(
         df_acq[cols],
         hide_index=True,
-        use_container_width=True,
+        use_container_width=False,
+        width=3200,
         height=520,
         column_config=column_config
     )
@@ -713,7 +714,8 @@ with tab2:
     st.dataframe(
         df_fid[cols],
         hide_index=True,
-        use_container_width=True,
+        use_container_width=False,
+        width=3200,
         height=520,
         column_config=column_config
     )
@@ -735,7 +737,8 @@ with tab3:
     st.dataframe(
         df_risk[cols],
         hide_index=True,
-        use_container_width=True,
+        use_container_width=False,
+        width=3200,
         height=520,
         column_config=column_config
     )
