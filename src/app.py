@@ -378,12 +378,10 @@ if statuts:
         df_filtered["statut_risque"].isin(statuts)
     ]
 
-df_filtered = df_filtered.drop_duplicates(
-    subset=[c for c in ["id_product", "id_product_attribute"] if c in df_filtered.columns] or ["id_product"],
-    keep="first"
-)
+group_keys = [c for c in ["id_product", "id_product_attribute"] if c in df_filtered.columns] or ["id_product"]
 
-df_filtered = df_filtered.reset_index(drop=True)
+# Keep full yearly rows for pivot/trend; dedup only after yearly features are computed.
+df_yearly = df_filtered.copy()
 
 if df_filtered.empty:
     st.warning(
@@ -397,17 +395,17 @@ if df_filtered.empty:
 
 year_cols=[]
 
-if "annee" in df_filtered.columns:
+if "annee" in df_yearly.columns:
 
-    pivot_qte = df_filtered.pivot_table(
-        index="id_product",
+    pivot_qte = df_yearly.pivot_table(
+        index=group_keys,
         columns="annee",
         values="qte_annee",
         aggfunc="sum"
     )
 
-    pivot_ca = df_filtered.pivot_table(
-        index="id_product",
+    pivot_ca = df_yearly.pivot_table(
+        index=group_keys,
         columns="annee",
         values="ca_annee_ttc",
         aggfunc="sum"
@@ -418,21 +416,18 @@ if "annee" in df_filtered.columns:
 
     pivot = pd.concat([pivot_qte,pivot_ca],axis=1).reset_index()
 
-    df_filtered = df_filtered.merge(pivot,on="id_product",how="left")
-
-    year_cols = pivot.columns.tolist()
-    year_cols.remove("id_product")
+    year_cols = [c for c in pivot.columns.tolist() if c not in group_keys]
 
 
 # =========================
 # TENDANCE
 # =========================
 
-if "annee" in df_filtered.columns:
+if "annee" in df_yearly.columns:
 
     trend_df = (
-        df_filtered
-        .groupby(["id_product","annee"])["qte_annee"]
+        df_yearly
+        .groupby(group_keys + ["annee"])["qte_annee"]
         .sum()
         .unstack(fill_value=0)
     )
@@ -443,12 +438,27 @@ if "annee" in df_filtered.columns:
         prev = sorted(trend_df.columns)[-2]
 
         trend_df["trend"] = trend_df[last]-trend_df[prev]
+        trend_df = trend_df["trend"].reset_index()
+    else:
+        trend_df = pd.DataFrame(columns=group_keys + ["trend"])
+else:
+    trend_df = pd.DataFrame(columns=group_keys + ["trend"])
 
-        df_filtered = df_filtered.merge(
-            trend_df["trend"],
-            on="id_product",
-            how="left"
-        )
+# Keep one display row per product (latest selected year when available).
+if "annee" in df_yearly.columns:
+    df_display = df_yearly.sort_values("annee", ascending=False)
+else:
+    df_display = df_yearly.copy()
+
+df_display = df_display.drop_duplicates(subset=group_keys, keep="first")
+df_display = df_display.reset_index(drop=True)
+
+if "annee" in df_yearly.columns:
+    df_display = df_display.merge(pivot, on=group_keys, how="left")
+    if not trend_df.empty:
+        df_display = df_display.merge(trend_df, on=group_keys, how="left")
+
+df_filtered = df_display
 
 
 def trend_icon(x):
