@@ -562,7 +562,7 @@ k4.metric("💣 Valeur stock HT",f"{stock:,.0f} €".replace(","," "))
 # Affichage: remplace les valeurs manquantes de marge par "N/A" pour eviter "None".
 if "marge_pct" in df_filtered.columns:
     df_filtered["marge_pct_display"] = df_filtered["marge_pct"].apply(
-        lambda x: "N/A" if pd.isna(x) else x
+        lambda x: "N/A" if pd.isna(x) else f"{x:.1f} %"
     )
 else:
     df_filtered["marge_pct_display"] = "N/A"
