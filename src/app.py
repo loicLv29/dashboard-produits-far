@@ -636,8 +636,8 @@ def get_column_width(series: pd.Series, col_name: str) -> str:
 column_config={
 "Idealo": st.column_config.LinkColumn(
     "Prix marché",
-    display_text="Vérifier le prix",
-    width="small"
+    display_text="Voir prix",
+    width="medium"
 ),
 "prix_vente_ttc": st.column_config.NumberColumn(
     "Prix TTC",
