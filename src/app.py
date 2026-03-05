@@ -81,6 +81,13 @@ def require_authentication() -> None:
 
 require_authentication()
 
+st.sidebar.caption(f"Fichier actif: {TABLE_PATH}")
+if os.path.exists(TABLE_PATH):
+    st.sidebar.caption(
+        "Derniere maj: "
+        + pd.Timestamp(os.path.getmtime(TABLE_PATH), unit="s").strftime("%Y-%m-%d %H:%M:%S")
+    )
+
 # =========================
 # LOAD DATA
 # =========================
