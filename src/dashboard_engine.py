@@ -18,6 +18,7 @@ EXPORT_DIR = os.environ.get("IPLN_EXPORT_DIR", DEFAULT_EXPORT_DIR)
 FILE_234 = "234_clients_categories.csv"
 FILE_235 = "235_connaissance_produits.csv"
 FILE_236 = "236_clients_produits.csv"
+FILE_242 = "242_catalogue_snapshot.csv"
 
 # =========================
 # HELPERS
@@ -29,6 +30,13 @@ def first_existing_path(*candidates: str) -> str:
         if os.path.exists(path):
             return path
     raise FileNotFoundError(f"Aucun fichier trouvé parmi: {candidates} dans {DATA_DIR}")
+
+def optional_existing_path(*candidates: str) -> str | None:
+    for name in candidates:
+        path = os.path.join(DATA_DIR, name)
+        if os.path.exists(path):
+            return path
+    return None
 
 def normalize_ean(df: pd.DataFrame) -> pd.DataFrame:
     # Renomme ean si la colonne s'appelle ean13 / ean13_x / etc.
@@ -45,6 +53,40 @@ def normalize_ean(df: pd.DataFrame) -> pd.DataFrame:
         )
         df.loc[df["ean"].isin(["nan", "None", ""]), "ean"] = np.nan
     return df
+
+def build_yearly_snapshot_df(path_242: str, merge_keys: list[str]) -> pd.DataFrame:
+    df_snap = pd.read_csv(path_242, sep=";")
+    df_snap = normalize_ean(df_snap)
+
+    if "snapshot_date" not in df_snap.columns:
+        raise KeyError("La colonne 'snapshot_date' est absente du fichier 242.")
+
+    df_snap["snapshot_date"] = pd.to_datetime(df_snap["snapshot_date"], errors="coerce")
+    df_snap = df_snap[df_snap["snapshot_date"].notna()].copy()
+    df_snap["annee"] = df_snap["snapshot_date"].dt.year.astype(int)
+
+    if "active" in df_snap.columns:
+        df_snap = df_snap[df_snap["active"] == 1].copy()
+
+    for col in ["prix_vente_ht", "prix_achat_ht", "stock"]:
+        if col in df_snap.columns:
+            df_snap[col] = pd.to_numeric(df_snap[col], errors="coerce")
+
+    snapshot_cols = [
+        "annee", "snapshot_date", *merge_keys,
+        "ean", "categorie", "marque", "nom",
+        "stock", "prix_achat_ht", "prix_vente_ht",
+    ]
+    snapshot_cols = [c for c in snapshot_cols if c in df_snap.columns]
+
+    df_snap = (
+        df_snap[snapshot_cols]
+        .sort_values("snapshot_date")
+        .drop_duplicates(subset=["annee", *merge_keys], keep="last")
+        .drop(columns=["snapshot_date"], errors="ignore")
+    )
+
+    return df_snap
 
 def detect_tva_rate(row) -> float:
     # Règle demandée :
@@ -73,6 +115,7 @@ os.makedirs(EXPORT_DIR, exist_ok=True)
 path_234 = first_existing_path(FILE_234, "234_clients_categories_2025.csv")
 path_235 = first_existing_path(FILE_235, "235_connaissance_produits.csv")
 path_236 = first_existing_path(FILE_236, "236_clients_produits_2025.csv")
+path_242 = optional_existing_path(FILE_242, "242_catalogue_snapshot.csv")
 
 df_cat = pd.read_csv(path_234, sep=";")
 df_prod = pd.read_csv(path_235, sep=";")
@@ -119,21 +162,106 @@ df_prod["marge_pct"] = np.where(
     (df_prod["marge_eur"] / df_prod["prix_vente_ht"].replace(0, np.nan)) * 100
 ).round(2)
 
-# =========================
-# MERGE PRODUITS / VENTES
-# =========================
-
 merge_keys = ["id_product", "id_product_attribute"]
 
 # conversion annee si elle existe
 if "annee" in df_sales.columns:
     df_sales["annee"] = pd.to_numeric(df_sales["annee"], errors="coerce")
 
-df = df_prod.merge(
-    df_sales,
-    on=["id_product", "id_product_attribute"],
-    how="left"
+# =========================
+# MERGE PRODUITS / VENTES
+# =========================
+if path_242:
+    df_snapshot_yearly = build_yearly_snapshot_df(path_242, merge_keys)
+
+    df = df_sales.merge(
+        df_snapshot_yearly,
+        on=["annee", *merge_keys],
+        how="left"
+    )
+
+    current_cols = merge_keys + [
+        c for c in [
+            "ean", "categorie", "marque", "nom",
+            "stock", "prix_achat_ht", "prix_vente_ht",
+            "qte_30j", "rotation_30j", "rotation_60j", "rotation_90j",
+        ] if c in df_prod.columns
+    ]
+    df_prod_current = df_prod[current_cols].drop_duplicates(subset=merge_keys)
+
+    df = df.merge(
+        df_prod_current,
+        on=merge_keys,
+        how="left",
+        suffixes=("_snap", "_cur")
+    )
+
+    for col in ["ean", "categorie", "marque", "nom", "stock", "prix_achat_ht", "prix_vente_ht"]:
+        snap_col = f"{col}_snap"
+        cur_col = f"{col}_cur"
+        if snap_col in df.columns and cur_col in df.columns:
+            df[col] = df[snap_col].combine_first(df[cur_col])
+        elif snap_col in df.columns:
+            df[col] = df[snap_col]
+        elif cur_col in df.columns:
+            df[col] = df[cur_col]
+
+    df = df.drop(
+        columns=[f"{c}_snap" for c in ["ean", "categorie", "marque", "nom", "stock", "prix_achat_ht", "prix_vente_ht"]] +
+                [f"{c}_cur" for c in ["ean", "categorie", "marque", "nom", "stock", "prix_achat_ht", "prix_vente_ht"]],
+        errors="ignore"
+    )
+
+    sold_keys = df_sales[merge_keys].drop_duplicates()
+    df_unsold = df_prod_current.merge(sold_keys, on=merge_keys, how="left", indicator=True)
+    df_unsold = df_unsold[df_unsold["_merge"] == "left_only"].drop(columns=["_merge"])
+
+    for col in df.columns:
+        if col not in df_unsold.columns:
+            df_unsold[col] = np.nan
+    for col in df_unsold.columns:
+        if col not in df.columns:
+            df[col] = np.nan
+
+    df = pd.concat([df, df_unsold[df.columns]], ignore_index=True, sort=False)
+else:
+    df = df_prod.merge(
+        df_sales,
+        on=merge_keys,
+        how="left"
+    )
+
+# =========================
+# TVA / MARGE (sur dataset final)
+# =========================
+for col in ["prix_vente_ht", "prix_achat_ht", "stock"]:
+    if col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+if "prix_vente_ht" not in df.columns:
+    raise KeyError("La colonne 'prix_vente_ht' est absente du dataset final.")
+
+df["tva_rate"] = df.apply(detect_tva_rate, axis=1)
+
+df["prix_vente_ttc"] = np.where(
+    df["tva_rate"] == 0.0,
+    df["prix_vente_ht"],
+    df["prix_vente_ht"] * (1 + df["tva_rate"])
 )
+
+df["flag_pa_missing"] = df["prix_achat_ht"].fillna(0) == 0
+
+df["marge_eur"] = np.where(
+    df["flag_pa_missing"],
+    np.nan,
+    df["prix_vente_ht"] - df["prix_achat_ht"]
+)
+
+df["marge_pct"] = np.where(
+    df["flag_pa_missing"],
+    np.nan,
+    (df["marge_eur"] / df["prix_vente_ht"].replace(0, np.nan)) * 100
+).round(2)
 
 # =========================
 # GARDE-FOUS COLONNES
